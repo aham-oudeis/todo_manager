@@ -11,11 +11,25 @@ class DatabasePersistence
   end
 
   def all_lists
-    sql = "SELECT * FROM list;"
+    sql = <<~SQL
+        SELECT list.*, 
+               count(todo.id) AS total_todos_count,
+               count(NULLIF(todo.completed, true)) AS incomplete_todos_count
+          FROM list
+     LEFT JOIN todo
+            ON todo.list_id = list.id
+      GROUP BY list.id
+      ORDER BY list.name;
+    SQL
+
     result = query(sql)
 
     result.map do |tuple|
-      {id: tuple["id"], name: tuple["name"], todos: find_todos(tuple["id"]) }
+      {id: tuple["id"],
+       name: tuple["name"],
+       total_todos_count: tuple['total_todos_count'].to_i,
+       incomplete_todos_count: tuple['incomplete_todos_count'].to_i
+      }
     end
   end
 
@@ -36,16 +50,34 @@ class DatabasePersistence
   end
 
   def find_list(id)
-    sql = "SELECT id, name FROM list WHERE id = $1;"
+    sql = <<~SQL
+      SELECT todo.id AS todo_id,
+            todo.name AS todo_name,
+            todo.completed,
+            list.id AS list_id,
+            list.name AS list_name
+        FROM todo
+        JOIN list
+          ON todo.list_id = list.id
+       WHERE list.id = $1;
+    SQL
+
     result = query(sql, id)
 
-    list_id_name = result.map { |tuple| [tuple['id'], tuple['name']] }.flatten
+    list_id = result.field_values('list_id')[0]
+    list_name = result.field_values('list_name')[0]
 
-    return nil if list_id_name.empty?
+    return nil if list_id.nil?
+    total_todos_count = result.ntuples
+    incomplete_todos_count = result.field_values('completed').count { |item| item == 'f' }
   
-    todos = find_todos(id)
+    todos = find_todos(result)
 
-    {id:list_id_name.first, name: list_id_name.last, todos: todos }
+    { id:list_id.to_i,
+      name: list_name,
+      todos: todos,
+      total_todos_count: total_todos_count,
+      incomplete_todos_count: incomplete_todos_count }
   end
 
   def edit_list_name(list_id, list_name)
@@ -80,12 +112,12 @@ class DatabasePersistence
 
   private
 
-  def find_todos(list_id)
-    sql = "SELECT id, name, completed FROM todo WHERE list_id = $1 ORDER BY id;"
-    result = query(sql, list_id)
-  
+  def find_todos(result)
     result.map do |tuple| 
-      {id: tuple['id'].to_i, name: tuple['name'], completed: to_boolean(tuple['completed'])}
+      { id: tuple['todo_id'].to_i,
+        name: tuple['todo_name'],
+        completed: to_boolean(tuple['completed'])
+      }
     end
   end
 

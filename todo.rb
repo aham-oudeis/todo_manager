@@ -54,16 +54,11 @@ helpers do
   end
 
   def completed?(list)
-    list.all? { |todo| todo[:completed] } if list.size > 0
-  end
-
-  def incomplete_by_total(list)
-    incomplete = list.count { |todo| !todo[:completed] }
-    "#{incomplete}/#{list.size}"
+    list[:incomplete_todos_count] == 0 if list[:total_todos_count] > 0
   end
 
   def sort_lists(lists)
-    sorted = lists.partition { |list| !completed?(list[:todos]) }.flatten
+    sorted = lists.partition { |list| !completed?(list) }.flatten
     sorted.each { |list| yield list }
   end
 
