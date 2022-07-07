@@ -8,7 +8,6 @@ configure do
   enable :sessions
   set :session_secret, 'secret'
   set :erb, :escape_html => true
-  
 end
 
 configure(:development) do
@@ -210,5 +209,4 @@ post "/lists/:list_id/todos/all/" do
   session[:flash_success] = "All tasks have been marked complete."
   redirect "/lists/#{list_index}"
 end
-
 
