@@ -57,7 +57,7 @@ class DatabasePersistence
             list.id AS list_id,
             list.name AS list_name
         FROM todo
-        JOIN list
+        RIGHT JOIN list
           ON todo.list_id = list.id
        WHERE list.id = $1;
     SQL
